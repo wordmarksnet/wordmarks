@@ -73,6 +73,83 @@ wrangler pages secret put OPENAI_API_KEY --project-name=wordmarks-v2
 
 ---
 
+### 2026-08-26 -- GitHub Repo Push + Rafter Full Scan (E2E)
+
+**Status:** IN PROGRESS
+
+- **Step 1 DONE:** Sessions verified via CDP (screenshots cdp-gh-session.png / cdp-rafter-session.png). GitHub logged in as `wordmarksnet` (meta user-login confirmed; 0 repos). Rafter dashboard shows "Welcome, wordmarksnet!" (onboarding modal + cookie banner present).
+- **Next:** commit coldstart update, secret grep, create repo `wordmarks` (private, empty), temp PAT push, revoke PAT, Rafter free scan.
+
+---
+
+### 2026-08-26 -- GitHub Signup Email Switch + Rafter.so Recon + Rafter CLI Install
+
+**Status:** ALL 3 TASKS COMPLETE (both browser tasks paused BY DESIGN at safe boundaries)
+
+**What Was Done**
+
+1. TASK A -- GitHub signup tab (tab [0], https://github.com/signup, LEFT OPEN):
+   - Email field replaced: `github@teak.email` -> `n311311+github@gmail.com` (green validation check visible, no errors).
+   - This SUPERSEDES the teak.email routing blocker from the earlier session (no longer relevant; gmail receives verification mail directly).
+   - Username `wordmarksnet` intact with green availability check. Password EMPTY. `Create account` NOT clicked (leads to captcha). Country=Indonesia, Copilot checkbox checked (pre-existing defaults, untouched).
+   - Final screenshot: `D:\Claude Cowork\Research site for press releases\.agents\skills\edge-browser-default\screenshots\cdp-github-after-email.png`
+
+2. TASK B -- Rafter.so signup recon (tab [2], restored to https://rafter.so/):
+   - Homepage: `Sign in with GitHub` button + `Start Free Scan` / `Dashboard` links -> `/dashboard`.
+   - `/dashboard` AUTO-REDIRECTS to GitHub OAuth (`github.com/login?client_id=Iv23liULzr6oasdYpdMf...` Supabase callback). NO email/password form exists on rafter.so.
+   - CONCLUSION: Rafter signup is GitHub-OAuth-only -> QUEUED behind completing the GitHub account (TASK A tab). No credentials entered, no OAuth consent given.
+   - FAQ (free plan): free tier = 1 scan/month, full findings + fix recommendations, no credit card. Agent security features (secret scanning, command interception, pre-commit hooks) free and work offline.
+   - Screenshots: `cdp-rafter-dashboard.png` (OAuth redirect), `cdp-rafter-faq.png` (free plan answer), same screenshots dir.
+
+3. TASK C -- Rafter CLI installed locally (no account needed):
+   - `npm install -g @rafter-security/cli` -> version **0.10.0** (148 packages).
+   - Commands inventoried via `rafter --help`: run, get, usage, sites, scan, secrets, agent, skill, ci, hook, mcp, policy, docs, issues, brief, notify, report.
+   - `rafter agent init` NOT run (per instruction).
+   - Local offline scan run: `rafter secrets "D:/Claude Cowork/Logo Maker" --json --no-auto-update` -> scan_mode=local, 1 finding: package-lock.json:5058 "AWS Secret Access Key" = **FALSE POSITIVE** (npm sha512 integrity SRI hash, verified by inspection).
+   - Free/offline (no API key): `secrets`, `agent scan/exec/status/verify/list`, hooks, `skill review`, `policy`, `mcp`, `brief`, `report` (local input).
+   - Needs account + RAFTER_API_KEY (remote): `run`/`scan` (full SAST/SCA + agentic triage), `get`, `usage`, `sites` (live-app monitoring), `notify`, `issues`.
+
+**Next Manual Steps (user)**
+
+1. In the open GitHub signup tab: type a password, solve the human-verification puzzle, click `Create account`; confirm verification email at n311311+github@gmail.com.
+2. Once GitHub account exists: complete Rafter signup in tab [2] via `Sign in with GitHub` (OAuth will then succeed), or run `rafter agent init` to wire agent security.
+3. Optional: `git remote add origin <new-repo-url>` and push baseline commit `e93c18f`.
+
+---
+
+### 2026-08-26 -- Git Baseline Commit + teak.email Routing Check + GitHub Signup (Paused)
+
+**Status:** ALL 3 TASKS COMPLETE (GitHub signup paused BY DESIGN before human-verification step)
+
+**What Was Done**
+
+1. Cloudflare read-only check (zone `teak.email`, id `c581403864e1bcdd8269c7754b3d7b80`, status active):
+   - Email Routing: `enabled=false`, `status=unconfigured`
+   - MX records: count = 0 (none exist)
+   - **BLOCKER for signup:** `github@teak.email` cannot receive GitHub's verification email until Email Routing is enabled (this auto-provisions MX records) and a routing address/rule for `github@teak.email` exists.
+
+2. Git baseline commit:
+   - Hash: `e93c18ffb0e4369b37007373b916a9e2c00c103d` (`e93c18f`)
+   - Message: `wordmarks.net production hardening: server-side API, R2/D1/KV, Access, docs`
+   - 53 files committed. Working tree clean after commit.
+   - Secret safety verified BEFORE staging: `.gitignore` covers `.env*` (line 34); `.env.local` NOT in index; full index content scan for `sk-proj-|sk-ant-|cfut_` returned only ALLOWED placeholder matches (scanner pattern literals in `.github/workflows/ci.yml`; truncated prefix reference in SECURITY.md incident note).
+   - New `.gitignore` exclusions added for tool/session state: `.mimosa/`, `.wrangler/`, `.zcode/`. Reason: `.mimosa/hook-state` baselines embed snapshots of workspace files including secrets.
+   - NOT pushed (no remote yet; new-account credentials pending).
+
+3. GitHub signup via user's Edge CDP bridge (tab LEFT OPEN at https://github.com/signup):
+   - No active session detected (old account emerilansel-jpg NOT logged in) -- sign-out unnecessary.
+   - Filled: email `github@teak.email` (client validation green check), username `wordmarksnet` (no availability error shown).
+   - Password left EMPTY per instruction; `Create account` NOT clicked (clicking it leads to the captcha puzzle).
+   - UI note: current GitHub signup is a single-page form (Email+Password+Username all visible). There is NO per-step Continue button anymore.
+
+**Next Manual Steps (user)**
+
+1. Cloudflare dashboard -> teak.email -> Email -> Email Routing: enable it (auto-adds MX), verify a destination inbox, add catch-all or address rule for `github@teak.email`.
+2. In the still-open Edge tab: type a password, complete the human-verification puzzle, click `Create account`, then confirm the verification email arrives at `github@teak.email`.
+3. Once the new GitHub account exists: `git remote add origin <url>` and push commit `e93c18f`.
+
+---
+
 ### 2026-08-26 -- R2 Wired + Cloudflare Access Configured
 
 **Status:** ALL COMPLETE
