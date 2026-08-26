@@ -1,0 +1,33 @@
+name = "wordmarks"
+compatibility_date = "2024-01-01"
+compatibility_flags = ["nodejs_compat"]
+pages_build_output_dir = "out"
+
+# ─── D1 Database ────────────────────────────────────────
+[[d1_databases]]
+binding = "DB"
+database_name = "wordmarks-db"
+database_id = "9c354852-9b71-4f13-abaf-c9a1a0bbd6e4"
+
+# ─── KV Namespace (rate limiting + caching) ─────────────
+[[kv_namespaces]]
+binding = "WORDMARKS_KV"
+id = "625572dce3d948ea8ebf927de238e718"
+
+# ─── R2 Object Storage ───────────────────────────────────
+[[r2_buckets]]
+binding = "KB_BUCKET"
+bucket_name = "wordmarks-kb"
+
+[[r2_buckets]]
+binding = "GENERATED_BUCKET"
+bucket_name = "wordmarks-generated"
+
+# ─── Environment Variables ──────────────────────────────
+# Set these via wrangler pages secret put:
+#   OPENAI_API_KEY       - OpenAI API key (NEVER commit to repo)
+#   WORDMARKS_MCP_TOKEN  - Auth token for MCP agents
+#
+# DO NOT add secrets here. Use:
+#   wrangler pages secret put OPENAI_API_KEY --project-name=wordmarks-v2
+#   wrangler pages secret put WORDMARKS_MCP_TOKEN --project-name=wordmarks-v2

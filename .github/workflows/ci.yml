@@ -1,0 +1,123 @@
+name: CI - wordmarks.net
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+jobs:
+  validate:
+    name: Lint, TypeCheck, Build
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Lint
+        run: npm run lint
+
+      - name: TypeCheck
+        run: npx tsc --noEmit
+
+      - name: Build
+        run: npm run build
+
+      - name: Secret Scan
+        run: |
+          # Check for hardcoded API keys in source files
+          if grep -r "sk-proj-" --include="*.ts" --include="*.tsx" --include="*.js" --exclude-dir=node_modules --exclude-dir=.next --exclude-dir=out . 2>/dev/null; then
+            echo "ERROR: Hardcoded API keys found in source files!"
+            exit 1
+          fi
+          if grep -r "sk-" --include="*.ts" --include="*.tsx" --include="*.js" --exclude-dir=node_modules --exclude-dir=.next --exclude-dir=out . 2>/dev/null | grep -v "sk-\.\.\." | grep -v "placeholder" | grep -v "example" | grep -v "type:" | grep -v "validate" | grep -v "// " | grep -v "test" > /dev/null 2>&1; then
+            echo "WARNING: Potential API keys found. Review manually."
+          fi
+          echo "Secret scan passed."
+
+      - name: Check no secrets in bundle
+        run: |
+          # Verify no NEXT_PUBLIC_ secrets are in the build output
+          if grep -r "sk-proj-" out/ 2>/dev/null; then
+            echo "ERROR: API keys found in build output!"
+            exit 1
+          fi
+          echo "Build output is clean."
+
+  deploy-preview:
+    name: Deploy Preview
+    needs: validate
+    runs-on: ubuntu-latest
+    if: github.event_name == 'pull_request'
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Build
+        run: npm run build
+
+      - name: Deploy to Cloudflare Pages (preview)
+        uses: cloudflare/wrangler-action@v3
+        with:
+          apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+          command: pages deploy out --project-name=wordmarks-v2 --branch=pr-${{ github.event.pull_request.number }}
+
+  deploy-production:
+    name: Deploy Production
+    needs: validate
+    runs-on: ubuntu-latest
+    if: github.ref == 'refs/heads/main' && github.event_name == 'push'
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Build
+        run: npm run build
+
+      - name: Deploy to Cloudflare Pages (production)
+        uses: cloudflare/wrangler-action@v3
+        with:
+          apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+          command: pages deploy out --project-name=wordmarks-v2 --branch=main
+
+      - name: Verify deployment
+        run: |
+          sleep 10
+          HTTP_CODE=$(curl -s -o /dev/null -w "%{http_code}" https://wordmarks.net)
+          if [ "$HTTP_CODE" != "200" ]; then
+            echo "WARNING: wordmarks.net returned $HTTP_CODE"
+          else
+            echo "wordmarks.net is serving (HTTP $HTTP_CODE)"
+          fi
+
+      - name: Verify no secrets in response
+        run: |
+          BODY=$(curl -s https://wordmarks.net)
+          if echo "$BODY" | grep -q "sk-proj-"; then
+            echo "ERROR: API keys exposed in response!"
+            exit 1
+          fi
+          echo "No secrets exposed in response."

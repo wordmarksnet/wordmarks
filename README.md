@@ -1,36 +1,153 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# Wordmarks.net
 
-## Getting Started
+AI-powered logo and wordmark generator. Users enter a brand name and description; the system generates logo concepts via OpenAI, reviews them, and iterates until a result is accepted.
 
-First, run the development server:
+## Architecture
 
-```bash
-npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
+```
+Browser / AI Agents
+        |
+        | HTTPS
+        v
+wordmarks.net (static site)          api.wordmarks.net (Cloudflare Pages Functions)
+   Next.js static export                  /api/v1/*
+   Cloudflare Pages                       |
+                                          +-- Auth (WORDMARKS_MCP_TOKEN / CF Access JWT)
+                                          +-- Rate limiting (KV-backed)
+                                          +-- Provider allowlist + retry
+                                          +-- D1 database (providers, settings, KB, jobs, audit)
+                                          +-- R2 storage (knowledge-base images, generated logos)
+                                          +-- OpenAI API (proxied, key never exposed to client)
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+| Layer | Technology | Notes |
+|-------|-----------|-------|
+| Frontend | Next.js 15 (static export) | Deployed to Cloudflare Pages project `wordmarks-v2` |
+| Backend API | Cloudflare Pages Functions | `functions/api/v1/*` |
+| Database | Cloudflare D1 | `wordmarks-db` |
+| KV Cache | Cloudflare KV | `WORDMARKS_KV` (rate limiting) |
+| Object Storage | Cloudflare R2 | `wordmarks-kb` + `wordmarks-generated` |
+| Auth | Cloudflare Access + Bearer token | Self-hosted apps on admin routes |
+| AI Provider | OpenAI API | Key stored as Cloudflare Pages secret |
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+## Quick Start
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+```bash
+# Install dependencies
+npm install
 
-## Learn More
+# Run development server (requires wrangler for Functions)
+npm run dev
 
-To learn more about Next.js, take a look at the following resources:
+# Build static export
+npm run build        # output goes to out/
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+# Deploy to Cloudflare Pages
+CLOUDFLARE_ACCOUNT_ID=<account-id> wrangler pages deploy out --project-name=wordmarks-v2 --branch=main
+```
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+## Environment and Secrets
 
-## Deploy on Vercel
+Secrets are stored as Cloudflare Pages secrets. **Never commit values to the repo.**
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
+| Secret Name | Purpose | How to set |
+|-------------|---------|------------|
+| `OPENAI_API_KEY` | OpenAI API access | `wrangler pages secret put OPENAI_API_KEY --project-name=wordmarks-v2` |
+| `WORDMARKS_MCP_TOKEN` | Auth token for API/MCP agents | `wrangler pages secret put WORDMARKS_MCP_TOKEN --project-name=wordmarks-v2` |
 
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+Local `.env.local` contains only reference config (model names, defaults) -- no API keys.
+
+## API Usage
+
+Canonical API hostname: `https://api.wordmarks.net`
+
+### Health Check
+
+```bash
+curl -s https://api.wordmarks.net/api/v1/health
+# {"ok":true,"database":"up","kv":"up","r2_kb":"up","r2_generated":"up"}
+```
+
+### Generate a Logo
+
+```bash
+curl -s -X POST https://api.wordmarks.net/api/v1/generate-logo \
+  -H "Content-Type: application/json" \
+  -H "Authorization: Bearer $WORDMARKS_MCP_TOKEN" \
+  -d '{"brandName":"Acme","description":"Modern tech startup"}'
+```
+
+### Review / Iterate
+
+```bash
+# Review
+curl -s -X POST https://api.wordmarks.net/api/v1/review \
+  -H "Content-Type: application/json" \
+  -H "Authorization: Bearer $WORDMARKS_MCP_TOKEN" \
+  -d '{"jobId":"<job-id>","imageData":"<base64>"}'
+
+# Iterate
+curl -s -X POST https://api.wordmarks.net/api/v1/iterate \
+  -H "Content-Type: application/json" \
+  -H "Authorization: Bearer $WORDMARKS_MCP_TOKEN" \
+  -d '{"jobId":"<job-id>","feedback":"Make it bolder"}'
+```
+
+### Admin Endpoints
+
+All admin routes require authentication (401 unauthenticated).
+
+```bash
+curl -s https://api.wordmarks.net/api/v1/admin/stats \
+  -H "Authorization: Bearer $WORDMARKS_MCP_TOKEN"
+```
+
+Admin UI is available at `https://wordmarks.net/admin/*` (protected by Cloudflare Access).
+
+## Resource Inventory
+
+| Resource | Name | ID | Binding |
+|----------|------|----|---------|
+| Pages Project | wordmarks-v2 | `6bf68e48-a2af-4307-983d-efff898e769b` | -- |
+| D1 Database | wordmarks-db | `9c354852-9b71-4f13-abaf-c9a1a0bbd6e4` | DB |
+| KV Namespace | WORDMARKS_KV | `625572dce3d948ea8ebf927de238e718` | WORDMARKS_KV |
+| R2 Bucket | wordmarks-kb | -- | KB_BUCKET |
+| R2 Bucket | wordmarks-generated | -- | GENERATED_BUCKET |
+
+## API Endpoints
+
+| Endpoint | Method | Auth | Description |
+|----------|--------|------|-------------|
+| `/api/v1/health` | GET | None | Service health (D1, KV, R2 status) |
+| `/api/v1/research` | POST | Optional | Brand research |
+| `/api/v1/generate-logo` | POST | Optional | Generate logo concepts |
+| `/api/v1/review` | POST | Optional | Review generated logo |
+| `/api/v1/iterate` | POST | Optional | Iterate on feedback |
+| `/api/v1/admin/stats` | GET | Required | Dashboard stats |
+| `/api/v1/admin/providers` | GET/POST | Required | Provider CRUD |
+| `/api/v1/admin/settings` | GET/POST | Required | Settings management |
+| `/api/v1/admin/knowledge-base` | GET/POST/DELETE | Required | Knowledge base CRUD |
+| `/api/v1/admin/export` | GET | Required | Redacted data export |
+| `/api/v1/db/migrate` | POST | Required | Run D1 schema migration |
+
+## Documentation
+
+| Document | Description |
+|----------|-------------|
+| [INFRA.md](INFRA.md) | Infrastructure details, DNS, Cloudflare resources |
+| [SECURITY.md](SECURITY.md) | Secrets, auth, rate limiting, compromised keys |
+| [RUNBOOK.md](RUNBOOK.md) | Health checks, common issues, rollback procedures |
+| [CHANGELOG-INFRA.md](CHANGELOG-INFRA.md) | Infrastructure change history |
+| [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) | Architecture overview and decisions |
+| [coldstart/coldstart.md](coldstart/coldstart.md) | Current state and session history |
+
+## Production
+
+- **Site**: https://wordmarks.net
+- **API**: https://api.wordmarks.net
+- **Latest deployment**: `e89b8bcc` on main branch
+- **Stack**: Cloudflare Pages + D1 + KV + R2 + Pages Functions
+
+## License
+
+Private. All rights reserved.
