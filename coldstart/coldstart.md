@@ -78,7 +78,17 @@ wrangler pages secret put OPENAI_API_KEY --project-name=wordmarks-v2
 **Status:** IN PROGRESS
 
 - **Step 1 DONE:** Sessions verified via CDP (screenshots cdp-gh-session.png / cdp-rafter-session.png). GitHub logged in as `wordmarksnet` (meta user-login confirmed; 0 repos). Rafter dashboard shows "Welcome, wordmarksnet!" (onboarding modal + cookie banner present).
-- **Next:** commit coldstart update, secret grep, create repo `wordmarks` (private, empty), temp PAT push, revoke PAT, Rafter free scan.
+- **Step 2 DONE:** Committed `docs: coldstart update` -> HEAD `b4b9394` (parent `e93c18f`). Secret grep (`sk-proj-|sk-ant-|cfut_|ghp_`) over committed tree (excl. node_modules/.next/out/.wrangler/.mimosa): only ALLOWED matches -- ci.yml scanner pattern literals, truncated incident prefix in SECURITY.md, prose pattern reference in coldstart.md. No real secrets.
+- **Step 3a DONE:** Private repo created in browser: https://github.com/wordmarksnet/wordmarks (empty, no README/gitignore/license; screenshots cdp-gh-new-repo.png -> cdp-gh-created2.png).
+- **Step 3 DONE:**
+  - Repo created: https://github.com/wordmarksnet/wordmarks (PRIVATE, was empty; screenshots cdp-gh-created2.png).
+  - PAT v1 (repo scope only, 7d): push REJECTED by GitHub -- repo contains `.github/workflows/ci.yml`, which requires `workflow` scope. Deleted immediately (verified list empty).
+  - PAT v2 (repo + workflow scopes, 7-day expiry, note `temp-push-wordmarks-20260826-v2`): push SUCCEEDED. Token value handled ONLY via in-pipeline shell variable (page eval -> env var -> git http.extraheader Basic auth); never printed/logged/written. `credential.helper=` overridden so Git Credential Manager never stored it.
+  - Remote verified: `git ls-remote` refs/heads/main = `b4b9394` (docs: coldstart update; parent e93c18f). Browser confirms main branch, 3 commits, full file tree.
+  - PAT v2 REVOKED via settings; tokens list verified EMPTY ("No personal access token created", screenshot cdp-gh-tokens-revoked.png). `.git/config` grep for token patterns: CLEAN. No Windows credman trace.
+  - Note: local branch renamed master -> main. Commit author avatar shows old account `emerilansel-jpg` (cosmetic; update git user email later if desired).
+- **Step 4 (in progress):** Rafter Security GitHub App installed on wordmarksnet with ONLY wordmarksnet/wordmarks selected (screenshots cdp-gh-app-install2 -> cdp-gh-app-selected). Repo+branch selected in dashboard (Fast mode = free tier; Plus is paid). Free scan confirmed unused beforehand ("No scans yet") then SPENT: scan submitted 2026-08-26 8:40 PM, status=processing. Banner confirms next free scan in 30 days. Polling for completion.
+- **Next:** poll scan to completion, retrieve severity summary (no secret values in docs), final report.
 
 ---
 
