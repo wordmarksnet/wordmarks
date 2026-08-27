@@ -87,8 +87,53 @@ wrangler pages secret put OPENAI_API_KEY --project-name=wordmarks-v2
   - Remote verified: `git ls-remote` refs/heads/main = `b4b9394` (docs: coldstart update; parent e93c18f). Browser confirms main branch, 3 commits, full file tree.
   - PAT v2 REVOKED via settings; tokens list verified EMPTY ("No personal access token created", screenshot cdp-gh-tokens-revoked.png). `.git/config` grep for token patterns: CLEAN. No Windows credman trace.
   - Note: local branch renamed master -> main. Commit author avatar shows old account `emerilansel-jpg` (cosmetic; update git user email later if desired).
-- **Step 4 (in progress):** Rafter Security GitHub App installed on wordmarksnet with ONLY wordmarksnet/wordmarks selected (screenshots cdp-gh-app-install2 -> cdp-gh-app-selected). Repo+branch selected in dashboard (Fast mode = free tier; Plus is paid). Free scan confirmed unused beforehand ("No scans yet") then SPENT: scan submitted 2026-08-26 8:40 PM, status=processing. Banner confirms next free scan in 30 days. Polling for completion.
-- **Next:** poll scan to completion, retrieve severity summary (no secret values in docs), final report.
+- **Step 4 DONE (FAILED):** Rafter scan submitted 2026-08-26 8:40 PM, status=FAILED. Dashboard confirms "Failed" with Retry option. Free scan quota spent; next free scan in 30 days.
+- **Next:** retry scan after push blocker resolved.
+
+---
+
+### 2026-08-27 -- Session Resume: Verify + Commit + Push Attempt + Local Scan
+
+**Status:** PARTIAL (push blocked by missing credentials)
+
+**What Was Done**
+
+1. **Browser verification (CDP):**
+   - GitHub: logged in as `wordmarksnet` (meta user-login confirmed; screenshot cdp-gh-verified.png).
+   - Rafter dashboard: logged in as `wordmarksnet` (screenshot cdp-rafter-dashboard-verified.png). Previous scan `wordmarksnet/wordmarks` / `main` / Fast: FAILED. Retry available.
+
+2. **Secret scan + commit:**
+   - Diff of coldstart.md scanned for `sk-proj-|sk-ant-|cfut_|ghp_|gho_|github_pat_|api_key|token|password|secret` patterns. Only ALLOWED prose pattern references found. No actual secret values.
+   - Committed: `914158f` (`docs: coldstart update with session state and scan status`). Working tree clean.
+
+3. **Repo verification:**
+   - `wordmarksnet/wordmarks` exists on GitHub (PRIVATE, 3 commits on main, full file tree visible).
+   - Remote URL: `https://github.com/wordmarksnet/wordmarks.git` (verified).
+   - Remote HEAD: `b4b9394` (docs: coldstart update). Local HEAD: `914158f` (1 commit ahead, unpushed).
+
+4. **Push attempt:**
+   - `git push --dry-run` FAILED: `fatal: repository not found` -- stored credentials (old `emerilansel-jpg` / revoked PAT v2) lack access to `wordmarksnet/wordmarks`.
+   - `gh` CLI authenticated as `emerilansel-jpg` (not `wordmarksnet`) -- cannot use `gh repo create` or `gh` push for the wordmarksnet repo.
+   - **BLOCKER:** No valid push credentials. Per instructions, no new PAT created.
+
+5. **Rafter CLI local offline scan:**
+   - `rafter secrets "." --json --no-auto-update` completed.
+   - 1 finding: `package-lock.json:5058` "AWS Secret Access Key" -- FALSE POSITIVE (npm sha512 SRI hash, verified in prior session).
+   - No real secrets found. Scan mode: local (pattern-based, no agentic triage).
+
+**Blockers**
+
+| Blocker | Impact | Resolution |
+|---------|--------|------------|
+| No push credentials for `wordmarksnet/wordmarks` | Local commit `914158f` cannot be pushed; Rafter remote scan targets stale state `b4b9394` | User must either: (a) authenticate `gh` CLI as `wordmarksnet` via `gh auth login`, or (b) create a PAT with `repo` scope under `wordmarksnet` and configure git credential |
+| Rafter scan FAILED (previous) | Free scan quota spent; next free scan in 30 days | Retry via dashboard after push resolves; or wait for quota reset |
+
+**Next**
+
+1. Resolve push credentials (user action required).
+2. Push local commit `914158f` to origin/main.
+3. Retry Rafter scan against pushed state.
+4. Final coldstart update with scan results.
 
 ---
 
