@@ -2,6 +2,47 @@
 
 > **Note:** All limitations listed in earlier entries (R2 unavailable, CNAME missing, Access not configured) have been resolved as of 2026-08-26. See the top entry for current status.
 
+## 2026-09-03 - Documentation Sync + Public Release Readiness
+
+### Completed
+
+- **Documentation sync for public release**: COMPLETE
+  - All project docs reviewed and updated: README.md, INFRA.md, SECURITY.md, RUNBOOK.md, CHANGELOG-INFRA.md, docs/ARCHITECTURE.md, coldstart/coldstart.md
+  - README.md license changed from "Private. All rights reserved." to "MIT" for public repository
+  - All infrastructure blockers from prior sessions (CNAME, R2, Access) confirmed resolved
+  - No stale "BLOCKED" or "MANUAL REQUIRED" references remain in active status sections
+
+- **Secret preflight scan**: PASS
+  - Full scan of all 59 tracked files for secret patterns (sk-proj-, ghp_, tokens, API keys, private keys, Authorization headers)
+  - All matches are inert: CI scanner pattern literals, truncated incident prefix in SECURITY.md prose, session log entries describing past scans
+  - No live secrets, credentials, or sensitive values found in tracked content
+  - `.gitignore` properly excludes `.env*`, `.mimosa/`, `.wrangler/`, `.zcode/`
+
+- **Repository visibility**: PENDING
+  - Target: `wordmarksnet/wordmarks` (currently PRIVATE)
+  - GitHub CLI (`gh`) not authenticated -- last session was `emerilansel-jpg` (wrong account), logged out
+  - Device flow auth broken in prior sessions (token never received after OAuth consent)
+  - No valid PAT exists for `wordmarksnet` account
+
+### Infrastructure Status (unchanged)
+
+| Resource | Status |
+|----------|--------|
+| Static site (wordmarks.net) | UP |
+| API (api.wordmarks.net) | UP |
+| D1 Database | Active |
+| KV Namespace | Active |
+| R2 Buckets (2) | Active |
+| Cloudflare Access (2 apps) | Configured |
+
+### Remaining Manual Actions
+
+1. **Rotate exposed OpenAI API key** (pending from prior sessions)
+2. **Authenticate `gh` CLI as `wordmarksnet`** or create a PAT with `repo` + `workflow` scopes to enable push and visibility change
+3. **Change repository visibility** to public once auth is available
+
+---
+
 ## 2026-08-26 - R2 Wired + Cloudflare Access Configured
 
 ### Completed

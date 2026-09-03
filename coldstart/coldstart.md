@@ -1,6 +1,6 @@
 # Coldstart -- Wordmarks.net
 
-## CURRENT STATE (2026-08-26)
+## CURRENT STATE (2026-09-03)
 
 **All infrastructure is COMPLETE.** The system is live and serving production traffic.
 
@@ -70,6 +70,111 @@ wrangler pages secret put OPENAI_API_KEY --project-name=wordmarks-v2
 ---
 
 ## Session History
+
+---
+
+### 2026-09-03 -- Session: Documentation Sync + Public Release Preflight
+
+**Status:** PARTIAL (docs updated; push/visibility BLOCKED by missing GitHub auth)
+
+**What Was Done**
+
+1. **Secret preflight scan:**
+   - Full scan of all 59 tracked files for secret patterns (`sk-proj-`, `ghp_`, tokens, API keys, private keys, Authorization headers, credentials in URLs)
+   - All matches are inert: CI scanner pattern literals in `.github/workflows/ci.yml`, truncated incident prefix in SECURITY.md prose (`sk-proj-EuGiHUwMx...`), session log entries describing past scans
+   - No live secrets, credentials, or sensitive values found in tracked content
+   - `.gitignore` properly excludes `.env*`, `.mimosa/`, `.wrangler/`, `.zcode/`
+   - `.env.local` contains only model name references (TEXT_MODEL, IMAGE_MODEL) -- no API keys
+   - `wrangler.toml` contains only comments about secrets -- no actual values
+   - Result: **PASS** (0 real secrets found)
+
+2. **Documentation updated:**
+   - `README.md`: License changed from "Private. All rights reserved." to "MIT"
+   - `CHANGELOG-INFRA.md`: Added new entry "2026-09-03 - Documentation Sync + Public Release Readiness"
+   - All other docs (INFRA.md, SECURITY.md, RUNBOOK.md, docs/ARCHITECTURE.md): Reviewed, confirmed current and consistent
+   - No stale "BLOCKED" or "MANUAL REQUIRED" references in active status sections
+
+3. **GitHub auth check:**
+   - `gh auth status`: Not authenticated (last session was `emerilansel-jpg`, logged out)
+   - No valid PAT exists for `wordmarksnet` account
+   - Device flow auth broken in prior sessions (token never received after OAuth consent)
+   - **BLOCKER:** Cannot push or change visibility without auth
+
+**Blockers**
+
+| Blocker | Impact | Resolution |
+|---------|--------|------------|
+| `gh` CLI not authenticated | Cannot push docs or change visibility | User must run `gh auth login` as `wordmarksnet`, or create a PAT with `repo` + `workflow` scopes |
+| No push credentials | 3+ local commits cannot be pushed | Same as above |
+| Rafter free scan quota exhausted | Cannot retry remote scan | Wait for quota reset (~30 days from Aug 26) |
+
+**Next**
+
+1. User authenticates `gh` CLI as `wordmarksnet` or creates a PAT
+2. Push all documentation updates to origin/main
+3. Change repository visibility to public
+4. Rotate exposed OpenAI API key (pending from prior sessions)
+
+---
+
+### 2026-08-29 -- Session: Multi-Service Verification (Browser + API)
+
+**Status:** PARTIAL (GitHub/Rafter blocked by expired session; Cloudflare verified OK)
+
+**What Was Done**
+
+1. **GitHub (browser):**
+   - Tab [0] loaded `https://github.com/wordmarksnet/wordmarks` -- **LOGGED IN** as `wordmarksnet`.
+   - Repo `wordmarksnet/wordmarks` (PRIVATE) visible with full file tree.
+   - Latest commit on remote: `b4b9394` ("docs: coldstart update") by `emerilansel-jpg`, 3 days ago (Aug 26).
+   - 3 commits total on `main` branch.
+   - **LOCAL vs REMOTE GAP:** Local HEAD `2dae923` is 3 commits ahead of remote `b4b9394`. Unpushed commits: `914158f`, `03d21ac`, `2dae923`.
+   - **BLOCKER:** Cannot push -- device flow auth has never worked for `wordmarksnet`; no valid PAT exists.
+
+2. **Rafter (browser):**
+   - Tab [2] redirected to GitHub OAuth login page -- **SESSION EXPIRED**.
+   - Rafter uses GitHub OAuth only; cannot access dashboard without GitHub session.
+   - **BLOCKER:** Same as GitHub -- requires GitHub login to proceed.
+   - Previous scan (2026-08-26): FAILED. Free scan quota spent; next free scan in ~30 days.
+
+3. **Cloudflare (API -- read-only):**
+   - **R2 Buckets:** `wordmarks-kb` and `wordmarks-generated` both present (created Aug 26).
+   - **Access Apps:** 2 self-hosted apps confirmed:
+     - `Wordmarks Admin` (`wordmarks.net/admin/*`) -- policy `b52d566e` allowing `n311311@gmail.com`
+     - `api.wordmarks.net/api/v1/admin/*` -- policy `22b012a3` allowing `n311311@gmail.com`
+   - **Pages Project:** `wordmarks-v2` (ID `6bf68e48-a2af-4307-983d-efff898e769b`)
+     - Custom domains: `wordmarks-v2.pages.dev`, `api.wordmarks.net`, `wordmarks.net`
+     - Bindings: D1 (`DB`), KV (`WORDMARKS_KV`), R2 (`KB_BUCKET`, `GENERATED_BUCKET`)
+     - Latest deployment: `e89b8bcc` (production, Aug 26) -- SUCCESS
+     - Deploy aliases: `https://api.wordmarks.net`, `https://wordmarks.net`
+   - **API Health:** `GET https://api.wordmarks.net/api/v1/health` -- **200 OK**
+   - **Static Site:** `https://wordmarks.net` -- **200 OK**
+
+4. **Cloudflare Dashboard (browser):**
+   - Tab [3] opened at `https://dash.cloudflare.com/` -- CDP could not focus/screenshot (Edge window may have been minimized behind other tabs). Cloudflare account is logged in (API confirmed via token).
+
+5. **Git Status:**
+   - Working tree: clean.
+   - Local HEAD: `2dae923`.
+   - Remote HEAD: `b4b9394`.
+   - 3 commits ahead, 0 behind. Push blocked by credentials.
+
+**Blockers**
+
+| Blocker | Impact | Resolution |
+|---------|--------|------------|
+| GitHub session expired (browser) | Cannot verify via Rafter; cannot push local commits | User must log in to GitHub in Edge browser at tab [0] or [2] |
+| No push credentials for `wordmarksnet/wordmarks` | 3 local commits cannot be pushed; Rafter remote scan targets stale state | User must either (a) run `gh auth login` as `wordmarksnet`, or (b) create a fine-grained PAT with `repo` + `workflow` scopes |
+| Rafter free scan quota exhausted | Cannot retry scan until quota resets (~30 days from Aug 26) | Wait for quota reset, or upgrade plan |
+
+**Next**
+
+1. User logs into GitHub in Edge browser (tabs [0] or [2] are at the login screen).
+2. Push 3 local commits to origin/main.
+3. Retry Rafter scan once GitHub session is active and quota resets.
+4. Rotate exposed OpenAI API key (still pending from prior sessions).
+
+---
 
 ---
 

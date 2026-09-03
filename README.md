@@ -150,4 +150,4 @@ Admin UI is available at `https://wordmarks.net/admin/*` (protected by Cloudflar
 
 ## License
 
-Private. All rights reserved.
+MIT
